@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import Home from "./Home";
 import CookiesWarning from "./CookiesWarning";
 import { SERVER_URL, authProviders } from "../config";
@@ -24,6 +25,13 @@ async function fetchSession() {
 }
 
 export default function Login() {
+    useEffect(() => {
+        let searchParams = new URLSearchParams(window.location.search);
+        if (searchParams.get("auth") === "success") {
+            window.close();
+        }
+    }, []);
+
     let { data: session, isLoading } = useQuery<SessionResponse | boolean>(
         ["session"],
         fetchSession
