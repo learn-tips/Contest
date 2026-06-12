@@ -1,0 +1,13 @@
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+zone       = "us-central1-a"
+
+name_prefix       = "tips"
+machine_type      = "e2-small"
+boot_disk_size_gb = 30
+
+# For production, replace this with your public IP, for example ["203.0.113.10/32"].
+ssh_source_ranges = ["0.0.0.0/0"]
+
+ssh_username        = "deploy"
+ssh_public_key_path = "~/.ssh/id_rsa.pub"

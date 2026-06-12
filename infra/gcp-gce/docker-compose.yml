@@ -1,0 +1,90 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER} -d ${DATABASE_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: ../../server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5050
+      DATABASE_URL: postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@db:5432/${DATABASE_NAME}
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
+      EXPRESS_SESSION_SECRET: ${EXPRESS_SESSION_SECRET}
+      APP_URL: ${APP_URL}
+      SERVER_URL: ${SERVER_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      SUCCESS_REDIRECT_URL: ${SUCCESS_REDIRECT_URL}
+      FAILURE_REDIRECT_URL: ${FAILURE_REDIRECT_URL}
+      SOCKETIO_USER: ${SOCKETIO_USER}
+      SOCKETIO_PASSWORD: ${SOCKETIO_PASSWORD}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  extension:
+    build:
+      context: ../../extension
+      args:
+        VITE_APP_URL: ${APP_URL}
+        VITE_SERVER_URL: ${SERVER_URL}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_HOST: ${APP_HOST}
+      API_HOST: ${API_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - server
+      - extension
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

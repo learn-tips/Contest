@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>TIPS</title>
+        <link rel="stylesheet" href="popup.css" />
+        <script defer src="popup.js"></script>
+    </head>
+    <body>
+        <div id="root" class="flex-col-root">
+            <div class="popup-logo-row">
+                <img
+                    id="tipsboard-icon"
+                    src="assets/TIPSLogo.svg"
+                    alt="TIPS logo"
+                />
+            </div>
+            <div id="tipsboard-instructions" class="flex-col">
+                <div id="tipsboard-instructions-text">
+                    To use TIPS, go to any LeetCode problem and refresh the
+                    page. You must be using the new LeetCode UI. You should see
+                    the TIPS side panel on the right.
+                </div>
+                <div class="flex-col">
+                    <div id="leetcode-link">Go to a LeetCode problem</div>
+                </div>
+            </div>
+            <div id="tipsboard-settings">
+                <div class="flex-col-left">
+                    <div class="flex-row">
+                        <label class="switch">
+                            <input id="show-hide-tipsboard" type="checkbox" />
+                            <span class="slider round"></span>
+                        </label>
+                        <span>Show TIPS panel</span>
+                    </div>
+                    <div class="flex-row">
+                        <label class="switch">
+                            <input
+                                id="toggle-tipsboard-darkmode"
+                                type="checkbox"
+                            />
+                            <span class="slider round"></span>
+                        </label>
+                        <span>Dark Mode</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex-col-footer">
+                <div id="github-link">GitHub</div>
+                <div id="version"></div>
+            </div>
+        </div>
+    </body>
+</html>

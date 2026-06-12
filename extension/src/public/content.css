@@ -1,0 +1,61 @@
+#tipsboard-iframe {
+    border-radius: 0.5rem;
+}
+
+#tipsboard-handlebar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 5px;
+}
+
+#handlebar-highlight {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+#tipsboard-handlebar:hover > #handlebar-highlight {
+    background-color: rgb(0, 132, 255);
+}
+
+#tipsboard-handlebar:active > #handlebar-highlight {
+    background-color: rgb(0, 132, 255);
+}
+
+#tipsboard-handlebar:not(:has(#handlebar-highlight)) {
+    margin-left: 3px;
+}
+
+#tipsboard-handlebar:hover:not(:has(#handlebar-highlight)) {
+    background-color: rgb(0, 132, 255);
+}
+
+#tipsboard-handlebar:active:not(:has(#handlebar-highlight)) {
+    background-color: rgb(0, 132, 255);
+}
+
+.handlebar-svg {
+    fill: rgb(58, 58, 58);
+}
+
+#open-handlebar-svg {
+    transform: rotate(180deg);
+}
+
+#tipsboard-handlebar:hover #drag-handlebar-svg {
+    fill: rgb(0, 132, 255);
+}
+
+#tipsboard-handlebar:active #drag-handlebar-svg {
+    fill: rgb(0, 132, 255);
+}
+
+#tipsboard-handlebar:hover > #open-handlebar-svg {
+    fill: white;
+}
+
+#tipsboard-handlebar:active > #open-handlebar-svg {
+    fill: white;
+}

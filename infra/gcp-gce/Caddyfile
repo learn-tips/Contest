@@ -1,0 +1,7 @@
+{$APP_HOST} {
+    reverse_proxy extension:8080
+}
+
+{$API_HOST} {
+    reverse_proxy server:5050
+}

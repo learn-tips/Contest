@@ -1,0 +1,325 @@
+---
+import Layout from "../layouts/Layout.astro";
+import TIPSLogo from "../assets/TIPSLogo.svg";
+import RoomSettingsScreenshot from "../assets/RoomSettingsScreenshot.svg";
+import ScoreboardScreenshot from "../assets/ScoreboardScreenshot.svg";
+import EventsScreenshot from "../assets/EventsScreenshot.svg";
+import TIPSBoardIcon from "../assets/TIPSBoardIcon.png";
+import GitHubIcon from "../assets/github.svg";
+import ChromeIcon from "../assets/ChromeIcon.svg";
+import ChatIcon from "../assets/ChatIcon.svg";
+import OpenSourceIcon from "../assets/OpenSourceIcon.svg";
+import PrivacyIcon from "../assets/PrivacyIcon.svg";
+---
+
+<Layout title="TIPSBoard | Multiplayer rooms for LeetCode">
+    <header class="fixed z-50 w-full transition duration-300 ease-in-out">
+        <div
+            class="flex flex-row items-center justify-center h-20 px-16 md:px-24 lg:px-36"
+        >
+            <div class="flex flex-row sm:flex-1 gap-x-3">
+                <img class="w-8" src={TIPSBoardIcon} alt="TIPSBoard icon" />
+                <div class="text-slate-200 text-xl font-bold">TIPSBoard</div>
+            </div>
+            <a
+                target="_blank"
+                rel="noopener noreferrer"
+                href="https://github.com/learn-tips/Contest"
+                class="sm:block hidden"
+            >
+                <img class="w-8" src={GitHubIcon} alt="GitHub icon" />
+            </a>
+        </div>
+    </header>
+    <main class="flex flex-col items-center justify-center pt-36 gap-y-16">
+        <div
+            class="text-center font-bold lg:text-5xl md:text-3xl text-xl text-transparent bg-clip-text bg-gradient-to-r from-slate-300 to-orange-200"
+        >
+            Multiplayer rooms for LeetCode
+        </div>
+        <a
+            target="_blank"
+            rel="noopener noreferrer"
+            href="https://chrome.google.com/webstore/detail/tipsboard/ekldadcjhbmljcefnilihgagmnmmlfcd"
+            class="flex flex-row items-center justify-center bg-[hsl(0,0%,16%)] hover:bg-[hsl(0,0%,19%)] transition-all p-4 rounded-lg gap-x-2"
+        >
+            <div class="text-slate-200 text-lg font-semibold">Install for</div>
+            <img src={ChromeIcon} alt="Install for Chrome" class="w-7" />
+        </a>
+        <div class="relative mx-8 lg:mx-28">
+            <div
+                class="absolute -inset-6 bg-gradient-radial from-yellow-700 to-[hsl(0,0%,12%)] blur-[64px]"
+            >
+            </div>
+            <img
+                src={TIPSLogo}
+                id="tipsboard-screenshot"
+                alt="TIPSBoard logo"
+                class="relative max-h-[22rem] rounded-xl opacity-0 scale-95 transition-all duration-1000"
+            />
+        </div>
+        <div
+            class="flex flex-row flex-wrap text-slate-200 px-28 lg:gap-x-36 gap-x-16 gap-y-12 items-start justify-center mt-14 mb-14"
+        >
+            <div class="flex flex-col flex-1 text-center items-center">
+                <img class="w-16 mb-3" src={ChatIcon} alt="Chat icon" />
+                <div class="font-bold">Chat</div>
+                <div class="opacity-60 text-md max-w-[16rem]">
+                    Use the live chat to collaborate on a shared set of
+                    questions.
+                </div>
+            </div>
+            <div class="flex flex-col flex-1 text-center items-center">
+                <img
+                    class="w-16 mb-3"
+                    src={OpenSourceIcon}
+                    alt="Open-source icon"
+                />
+                <div class="font-bold">Open-source</div>
+                <div class="opacity-60 text-md max-w-[16rem]">
+                    The web extension, the server, and even this website are all
+                    open-source!
+                </div>
+            </div>
+            <div class="flex flex-col flex-1 text-center items-center">
+                <img class="w-16 mb-3" src={PrivacyIcon} alt="Privacy icon" />
+                <div class="font-bold">Privacy</div>
+                <div class="opacity-60 text-md max-w-[16rem]">
+                    TIPSBoard does not store any passwords or messages.
+                </div>
+            </div>
+        </div>
+        <div class="flex flex-col w-full gap-y-14">
+            <div
+                class="flex flex-row items-center justify-center gap-20 flex-wrap"
+            >
+                <div class="relative">
+                    <div
+                        class="absolute inset-0 bg-gradient-radial from-yellow-700 to-[hsl(0,0%,12%)] blur-[64px]"
+                    >
+                    </div>
+                    <img
+                        class="relative left-card rounded-[20px] border-slate-600 border-[1px]"
+                        src={RoomSettingsScreenshot}
+                        alt="Room settings screenshot"
+                    />
+                </div>
+                <div class="flex flex-col gap-y-10 px-4">
+                    <div
+                        class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-300 to-orange-200"
+                    >
+                        Customize the room settings
+                    </div>
+                    <ul class="pl-2 text-lg">
+                        <span class="flex flex-row items-center gap-x-2">
+                            <span class="text-lg">✓</span>
+                            <li>Select specific topics to practice</li>
+                        </span>
+                        <span class="flex flex-row items-center gap-x-2">
+                            <span class="text-lg">✓</span>
+                            <li>Filter questions by difficulty</li>
+                        </span>
+                        <span class="flex flex-row items-center gap-x-2">
+                            <span class="text-lg">✓</span>
+                            <li>Set a room timer to simulate contests</li>
+                        </span>
+                    </ul>
+                </div>
+            </div>
+            <div
+                class="flex flex-row items-center justify-center gap-20 flex-wrap"
+            >
+                <div class="flex flex-col gap-y-10 px-4">
+                    <div
+                        class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-l from-slate-300 to-orange-200"
+                    >
+                        Keep track with the scoreboard
+                    </div>
+                    <ul class="pl-2 text-lg">
+                        <span class="flex flex-row items-center gap-x-2">
+                            <span class="text-lg">✓</span>
+                            <li>Ranked by completion time</li>
+                        </span>
+                        <span class="flex flex-row items-center gap-x-2">
+                            <span class="text-lg">✓</span>
+                            <li>
+                                Hover over accepted submissions to see their
+                                time
+                            </li>
+                        </span>
+                        <span class="flex flex-row items-center gap-x-2">
+                            <span class="text-lg">✓</span>
+                            <li>
+                                Click on accepted submissions to view their code
+                            </li>
+                        </span>
+                    </ul>
+                </div>
+                <div class="relative">
+                    <div
+                        class="absolute inset-0 bg-gradient-radial from-yellow-700 to-[hsl(0,0%,12%)] blur-[72px]"
+                    >
+                    </div>
+                    <img
+                        class="relative right-card rounded-[20px] border-slate-600 border-[1px]"
+                        src={ScoreboardScreenshot}
+                        alt="Scoreboard screenshot"
+                    />
+                </div>
+            </div>
+            <div
+                class="flex flex-row items-center justify-center gap-20 flex-wrap"
+            >
+                <div class="relative">
+                    <div
+                        class="absolute inset-0 bg-gradient-radial from-yellow-700 to-[hsl(0,0%,12%)] blur-[72px]"
+                    >
+                    </div>
+                    <img
+                        class="relative left-card rounded-[20px] border-slate-600 border-[1px]"
+                        src={EventsScreenshot}
+                        alt="Events screenshot"
+                    />
+                </div>
+                <div class="flex flex-col gap-y-10 px-4">
+                    <div
+                        class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-300 to-orange-200"
+                    >
+                        Experience real-time events
+                    </div>
+                    <ul class="pl-2 text-lg">
+                        <span class="flex flex-row items-center gap-x-2">
+                            <span class="text-lg">✓</span>
+                            <li>Question submitted</li>
+                        </span>
+                        <span class="flex flex-row items-center gap-x-2">
+                            <span class="text-lg">✓</span>
+                            <li>Question accepted</li>
+                        </span>
+                        <span class="flex flex-row items-center gap-x-2">
+                            <span class="text-lg">✓</span>
+                            <li>Room completed</li>
+                        </span>
+                        <span class="flex flex-row items-center gap-x-2">
+                            <span class="text-lg">✓</span>
+                            <li>And more...</li>
+                        </span>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="flex flex-col items-center justify-center gap-8 mt-20">
+            <div
+                class="text-center font-bold text-5xl text-transparent bg-clip-text bg-gradient-to-l from-slate-300 to-orange-200"
+            >
+                Get started
+            </div>
+            <a
+                target="_blank"
+                rel="noopener noreferrer"
+                href="https://chrome.google.com/webstore/detail/tipsboard/ekldadcjhbmljcefnilihgagmnmmlfcd"
+                class="flex flex-row items-center justify-center bg-[hsl(0,0%,16%)] hover:bg-[hsl(0,0%,19%)] transition-all p-4 rounded-lg gap-x-2"
+            >
+                <div class="text-slate-200 text-lg font-semibold">
+                    Install for
+                </div>
+                <img src={ChromeIcon} alt="Install for Chrome" class="w-7" />
+            </a>
+        </div>
+        <footer
+            class="text-slate-200 flex flex-row flex-wrap text-sm gap-x-4 pb-8 items-center justify-center"
+        >
+            <a
+                class="hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+                href="https://discord.gg/bJBDNpSUWQ">Discord</a
+            >
+            <div>•</div>
+            <a
+                class="hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+                href="https://github.com/learn-tips/Contest">GitHub</a
+            >
+            <div>•</div>
+            <a
+                class="hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+                href="/terms-of-service">Terms of service</a
+            >
+            <div>•</div>
+            <a
+                class="hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+                href="/privacy-policy"
+            >
+                Privacy policy
+            </a>
+            <div>•</div>
+            <a
+                class="hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+                href="/cookies-policy"
+            >
+                Cookies policy
+            </a>
+        </footer>
+    </main>
+</Layout>
+
+<style>
+    .fade-in-grow {
+        opacity: 1 !important;
+        transform: scale(1) !important;
+    }
+</style>
+
+<script>
+    import VanillaTilt from "vanilla-tilt";
+
+    const leftCards = Array.from(
+        document.querySelectorAll<HTMLImageElement>(".left-card"),
+    );
+    const rightCards = Array.from(
+        document.querySelectorAll<HTMLImageElement>(".right-card"),
+    );
+    if (leftCards) {
+        VanillaTilt.init(leftCards, {
+            scale: 1.1,
+            speed: 2000,
+            startX: -8,
+            startY: 4,
+        });
+    }
+    if (rightCards) {
+        VanillaTilt.init(rightCards, {
+            scale: 1.1,
+            speed: 2000,
+            startX: 8,
+            startY: 4,
+        });
+    }
+
+    let navBar = document.querySelector("header");
+    let blurClasses = ["bg-opacity-50", "shadow-lg", "backdrop-blur-sm"];
+    function blurNavBar() {
+        if (window.scrollY > 30) {
+            navBar?.classList.add(...blurClasses);
+        } else if (window.scrollY <= 30) {
+            navBar?.classList.remove(...blurClasses);
+        }
+    }
+    window.addEventListener("scroll", blurNavBar);
+    blurNavBar();
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const screenshot = document.getElementById("tipsboard-screenshot");
+        if (screenshot) {
+            screenshot.classList.add("fade-in-grow");
+        }
+    });
+</script>

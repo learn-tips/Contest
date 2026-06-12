@@ -1,0 +1,685 @@
+import { Dialog, Transition } from "@headlessui/react";
+import { Fragment, useState } from "react";
+import GraphIcon from "../../icons/GraphIcon";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { SERVER_URL } from "../../config";
+import Spinner from "../Spinner";
+import { Question, SubmissionStatus } from "../../types/Question";
+import XIcon from "../../icons/XIcon";
+import NoSubmissionIcon from "../../icons/NoSubmissionIcon";
+import AcceptedSubmissionIcon from "../../icons/AcceptedSubmissionIcon";
+import { Tooltip } from "react-tooltip";
+
+interface Player {
+    id: number;
+    username: string;
+    updatedAt: Date;
+    roomId: string;
+}
+
+interface PlayerSubmission {
+    title: string;
+    titleSlug: string;
+    difficulty: string;
+    status?: SubmissionStatus;
+    updatedAt?: Date;
+    url: string;
+}
+
+interface PlayerWithSubmissions extends Player {
+    submissions: PlayerSubmission[];
+}
+
+function calculateTimeDifference(playerEnteredAt: Date, submittedAt: Date) {
+    const dateConvertedSubmissionTime = new Date(submittedAt);
+
+    let dateConvertedPlayerEnteredAt = new Date(playerEnteredAt);
+    const userTimezoneOffset =
+        dateConvertedPlayerEnteredAt.getTimezoneOffset() * 60000;
+    dateConvertedPlayerEnteredAt = new Date(
+        dateConvertedPlayerEnteredAt.getTime() +
+            userTimezoneOffset * Math.sign(userTimezoneOffset)
+    );
+
+    const timeDifference =
+        dateConvertedSubmissionTime.getTime() -
+        dateConvertedPlayerEnteredAt.getTime();
+
+    return timeDifference;
+}
+
+let cancelQueryTimer: ReturnType<typeof setTimeout>;
+
+export default function PlayersButton({
+    questions,
+    roomId,
+}: {
+    questions: Question[];
+    roomId: string;
+}) {
+    let [isOpen, setIsOpen] = useState(false);
+    const queryClient = useQueryClient();
+    let {
+        data: players,
+        isFetching,
+    } = useQuery<PlayerWithSubmissions[]>({
+        queryKey: ["players"],
+        queryFn: async ({ signal }) => {
+            let response = await fetch(`${SERVER_URL}/rooms/`, {
+                credentials: "include",
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                signal,
+            });
+            if (!response.ok) {
+                throw new Error("Failed to fetch current players");
+            }
+            return response.json();
+        },
+        refetchOnWindowFocus: false,
+        enabled: isOpen,
+        keepPreviousData: false,
+    });
+
+    let numberOfPlayersOnline = players
+        ? players.filter((player) => player.roomId == roomId).length
+        : 0;
+
+    function getPlayersWithSortedSubmissions(
+        players: PlayerWithSubmissions[] | undefined,
+        questions: Question[]
+    ) {
+        if (!players) {
+            return undefined;
+        }
+        let playersWithSortedSubmissions: PlayerWithSubmissions[] = [];
+        for (let player of players) {
+            let submissions = player.submissions;
+            let sortedSubmissions = sortSubmissionsByQuestionOrder(
+                submissions,
+                questions
+            );
+            playersWithSortedSubmissions.push({
+                ...player,
+                submissions: sortedSubmissions,
+            });
+        }
+        return playersWithSortedSubmissions;
+    }
+
+    function sortSubmissionsByQuestionOrder(
+        submissions: PlayerSubmission[],
+        questions: Question[]
+    ) {
+        let sortedSubmissions = [];
+        for (let question of questions) {
+            let foundSubmission = submissions.find(
+                (submission) => submission.titleSlug === question.titleSlug
+            );
+            if (foundSubmission) {
+                sortedSubmissions.push(foundSubmission);
+            } else {
+                sortedSubmissions.push({
+                    title: question.title,
+                    titleSlug: question.titleSlug,
+                    difficulty: question.difficulty,
+                    url: "",
+                });
+            }
+        }
+        return sortedSubmissions;
+    }
+
+    let playersWithSortedSubmissions = getPlayersWithSortedSubmissions(
+        players,
+        questions
+    );
+
+    let rankedPlayers = rankPlayers(playersWithSortedSubmissions);
+
+    function rankPlayers(players: PlayerWithSubmissions[] | undefined) {
+        if (!players) {
+            return undefined;
+        }
+        // Sort players by number of accepted submissions, then by total accepted submission time.
+        let ranked = players.sort((a, b) => {
+            let aAccepted = a.submissions.filter(
+                (submission) =>
+                    submission.status === SubmissionStatus.Accepted &&
+                    submission.updatedAt
+            );
+            let bAccepted = b.submissions.filter(
+                (submission) =>
+                    submission.status === SubmissionStatus.Accepted &&
+                    submission.updatedAt
+            );
+
+            if (aAccepted.length !== bAccepted.length) {
+                return bAccepted.length - aAccepted.length;
+            }
+
+            let aTotalSubmissionTime = aAccepted.reduce((total, submission) => {
+                return (
+                    total +
+                    calculateTimeDifference(a.updatedAt, submission.updatedAt!)
+                );
+            }, 0);
+            let bTotalSubmissionTime = bAccepted.reduce((total, submission) => {
+                return (
+                    total +
+                    calculateTimeDifference(b.updatedAt, submission.updatedAt!)
+                );
+            }, 0);
+
+            return aTotalSubmissionTime - bTotalSubmissionTime;
+        });
+
+        return ranked;
+    }
+
+    function closeModal() {
+        setIsOpen(false);
+        cancelQueryTimer = setTimeout(() => {
+            queryClient.cancelQueries(["players"]);
+        }, 1000);
+    }
+
+    function openModal() {
+        clearTimeout(cancelQueryTimer);
+        setIsOpen(true);
+    }
+
+    return (
+        <>
+            <div
+                className="flex cursor-pointer flex-col items-center rounded-lg bg-[#3A5BEF] px-3 py-[10px] text-white shadow-sm transition-all hover:bg-[#2949D8] dark:bg-[#3A5BEF] dark:hover:bg-[#5B75FF]"
+                onClick={openModal}
+            >
+                <div className="flex flex-row items-baseline gap-2">
+                    <GraphIcon />
+                    <div>TIPS</div>
+                </div>
+            </div>
+
+            <Transition appear show={isOpen} as={Fragment}>
+                <Dialog as="div" className="relative z-10" onClose={closeModal}>
+                    <Transition.Child
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0"
+                        enterTo="opacity-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                    >
+                        <div className="fixed inset-0 bg-[hsl(0,0%,52%)] bg-opacity-50 dark:bg-lc-bg dark:bg-opacity-50" />
+                    </Transition.Child>
+                    <div id="modal" className="fixed inset-0 overflow-y-auto">
+                        <div className="flex min-h-full items-center justify-center pl-4 pr-6">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-out duration-300"
+                                enterFrom="opacity-0 scale-95"
+                                enterTo="opacity-100 scale-100"
+                                leave="ease-in duration-200"
+                                leaveFrom="opacity-100 scale-100"
+                                leaveTo="opacity-0 scale-95"
+                            >
+                                <Dialog.Panel
+                                    className={
+                                        isFetching
+                                            ? `flex h-[360px] w-full max-w-md transform items-center justify-center overflow-hidden rounded-2xl bg-lc-fg-light shadow-xl transition-all dark:bg-lc-fg`
+                                            : `flex h-[360px] w-full max-w-md transform overflow-hidden rounded-2xl bg-lc-fg-light shadow-xl transition-all dark:bg-lc-fg`
+                                    }
+                                >
+                                    {isFetching ? (
+                                        <Spinner />
+                                    ) : (
+                                        <div className="flex w-full flex-col">
+                                            <div className="flex items-center justify-between border-b-[0.5px] border-[#3A5BEF]/20 px-5 py-3 dark:border-[#8EA2FF]/20">
+                                                <div className="flex flex-col gap-y-[2px]">
+                                                    <Dialog.Title
+                                                        as="h3"
+                                                        className="text-lg font-semibold leading-6 text-[#3A5BEF] dark:text-[#8EA2FF]"
+                                                    >
+                                                        TIPS
+                                                    </Dialog.Title>
+                                                    <div className="text-xs text-gray-400">
+                                                        {numberOfPlayersOnline} online · solved questions
+                                                    </div>
+                                                </div>
+                                                <button onClick={closeModal}>
+                                                    <XIcon />
+                                                </button>
+                                            </div>
+
+                                            <Scoreboard
+                                                players={rankedPlayers}
+                                                roomId={roomId}
+                                            />
+                                        </div>
+                                    )}
+                                </Dialog.Panel>
+                            </Transition.Child>
+                        </div>
+                    </div>
+                </Dialog>
+            </Transition>
+        </>
+    );
+}
+
+function Scoreboard({
+    players,
+    roomId,
+}: {
+    players: PlayerWithSubmissions[] | undefined;
+    roomId: string;
+}) {
+    return (
+        <div className="mb-3 mt-3 flex flex-col overflow-auto text-sm font-medium text-lc-text-light dark:text-white">
+            {players
+                ? players.map((player) => {
+                      const solvedCount = player.submissions.filter(
+                          (submission) =>
+                              submission.status === SubmissionStatus.Accepted
+                      ).length;
+                      return (
+                          <div
+                              className="flex flex-row items-center gap-3 px-5 py-2 odd:bg-[#3A5BEF]/[8%] dark:odd:bg-[#3A5BEF]/[16%]"
+                              key={player.id}
+                          >
+                              <div className="flex w-32 flex-col">
+                                  <div
+                                      className={`truncate ${
+                                          player.roomId === roomId
+                                              ? ""
+                                              : "text-[hsl(0,0%,15%,37%)] dark:text-[hsl(0,0%,100%,30%)]"
+                                      }`}
+                                  >
+                                      {player.username}
+                                  </div>
+                                  <div className="text-[10px] font-semibold uppercase text-[#3A5BEF] dark:text-[#8EA2FF]">
+                                      {solvedCount} solved questions
+                                  </div>
+                              </div>
+                              <Scores
+                                  playerEnteredAt={player.updatedAt}
+                                  submissions={player.submissions}
+                              />
+                          </div>
+                      );
+                  })
+                : null}
+        </div>
+    );
+}
+
+function Scores({
+    playerEnteredAt,
+    submissions,
+}: {
+    playerEnteredAt: Date;
+    submissions: PlayerSubmission[];
+}) {
+    function getSubmissionTime(
+        playerEnteredAt: Date,
+        submission: PlayerSubmission
+    ) {
+        const submissionTime = submission.updatedAt;
+        if (
+            submission.status !== SubmissionStatus.Accepted ||
+            !submissionTime
+        ) {
+            return undefined;
+        }
+
+        const solvedTime = calculateTimeDifference(
+            playerEnteredAt,
+            submissionTime
+        );
+
+        const seconds = Math.floor((solvedTime / 1000) % 60);
+        const minutes = Math.floor((solvedTime / (1000 * 60)) % 60);
+        const hours = Math.floor((solvedTime / (1000 * 60 * 60)) % 24);
+
+        let result = "";
+        if (seconds) {
+            result += `${seconds}s`;
+        }
+        if (minutes) {
+            result = `${minutes}m ${result}`;
+        }
+        if (hours) {
+            result = `${hours}h ${result}`;
+        }
+        return result;
+    }
+
+    function handleClickSubmission(submission: PlayerSubmission) {
+        if (submission.status !== SubmissionStatus.Accepted) {
+            return;
+        }
+        window.open(submission.url, "_blank");
+    }
+
+    return (
+        <div className="flex flex-1 flex-row justify-around">
+            {submissions.map((submission) => {
+                return (
+                    <div
+                        onClick={() => handleClickSubmission(submission)}
+                        className={
+                            submission.status === SubmissionStatus.Accepted
+                                ? "cursor-pointer"
+                                : ""
+                        }
+                        key={submission.titleSlug}
+                    >
+                        <div
+                            data-tooltip-id={submission.titleSlug}
+                            data-tooltip-content={getSubmissionTime(
+                                playerEnteredAt,
+                                submission
+                            )}
+                        >
+                            {submission.status === SubmissionStatus.Accepted ? (
+                                <AcceptedSubmissionIcon />
+                            ) : (
+                                <NoSubmissionIcon />
+                            )}
+                        </div>
+                        {submission.status === SubmissionStatus.Accepted && (
+                            <Tooltip id={submission.titleSlug} />
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+let mockPlayers: PlayerWithSubmissions[] = [
+    {
+        id: 0,
+        username: "turing_machine",
+        updatedAt: new Date(),
+        roomId: "uWOHVqaJc3",
+        submissions: [
+            {
+                title: "Two Sum",
+                titleSlug: "two-sum",
+                difficulty: "Easy",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Add Two Numbers",
+                titleSlug: "add-two-numbers",
+                difficulty: "Medium",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Longest Substring Without Repeating Characters",
+                titleSlug: "longest-substring-without-repeating-characters",
+                difficulty: "Medium",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Median of Two Sorted Arrays",
+                titleSlug: "median-of-two-sorted-arrays",
+                difficulty: "Hard",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+        ],
+    },
+    {
+        id: 1,
+        username: "L3tt3r5",
+        updatedAt: new Date(),
+        roomId: "uWOHVqaJc3",
+        submissions: [
+            {
+                title: "Two Sum",
+                titleSlug: "two-sum",
+                difficulty: "Easy",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Add Two Numbers",
+                titleSlug: "add-two-numbers",
+                difficulty: "Medium",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Longest Substring Without Repeating Characters",
+                titleSlug: "longest-substring-without-repeating-characters",
+                difficulty: "Medium",
+                status: SubmissionStatus.Attempted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Median of Two Sorted Arrays",
+                titleSlug: "median-of-two-sorted-arrays",
+                difficulty: "Hard",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+        ],
+    },
+    {
+        id: 2,
+        username: "tipsboard_user",
+        updatedAt: new Date(),
+        roomId: "uWOHVqaJc3",
+        submissions: [
+            {
+                title: "Two Sum",
+                titleSlug: "two-sum",
+                difficulty: "Easy",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Add Two Numbers",
+                titleSlug: "add-two-numbers",
+                difficulty: "Medium",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Longest Substring Without Repeating Characters",
+                titleSlug: "longest-substring-without-repeating-characters",
+                difficulty: "Medium",
+                status: SubmissionStatus.Attempted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Median of Two Sorted Arrays",
+                titleSlug: "median-of-two-sorted-arrays",
+                difficulty: "Hard",
+                status: SubmissionStatus.Attempted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+        ],
+    },
+    {
+        id: 3,
+        username: "curly_fries6",
+        updatedAt: new Date(),
+        roomId: "uWOHVqaJc3",
+        submissions: [
+            {
+                title: "Two Sum",
+                titleSlug: "two-sum",
+                difficulty: "Easy",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Add Two Numbers",
+                titleSlug: "add-two-numbers",
+                difficulty: "Medium",
+                status: SubmissionStatus.Attempted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Longest Substring Without Repeating Characters",
+                titleSlug: "longest-substring-without-repeating-characters",
+                difficulty: "Medium",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Median of Two Sorted Arrays",
+                titleSlug: "median-of-two-sorted-arrays",
+                difficulty: "Hard",
+                status: undefined,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+        ],
+    },
+    {
+        id: 4,
+        username: "pineflamingo",
+        updatedAt: new Date(),
+        roomId: "uWOHVqaJc3",
+        submissions: [
+            {
+                title: "Two Sum",
+                titleSlug: "two-sum",
+                difficulty: "Easy",
+                status: SubmissionStatus.Accepted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Add Two Numbers",
+                titleSlug: "add-two-numbers",
+                difficulty: "Medium",
+                status: SubmissionStatus.Attempted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Longest Substring Without Repeating Characters",
+                titleSlug: "longest-substring-without-repeating-characters",
+                difficulty: "Medium",
+                status: undefined,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Median of Two Sorted Arrays",
+                titleSlug: "median-of-two-sorted-arrays",
+                difficulty: "Hard",
+                status: SubmissionStatus.Attempted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+        ],
+    },
+    {
+        id: 5,
+        username: "rat_code",
+        updatedAt: new Date(),
+        roomId: "uWOHVqaJc3",
+        submissions: [
+            {
+                title: "Two Sum",
+                titleSlug: "two-sum",
+                difficulty: "Easy",
+                status: SubmissionStatus.Attempted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Add Two Numbers",
+                titleSlug: "add-two-numbers",
+                difficulty: "Medium",
+                status: undefined,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Longest Substring Without Repeating Characters",
+                titleSlug: "longest-substring-without-repeating-characters",
+                difficulty: "Medium",
+                status: undefined,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Median of Two Sorted Arrays",
+                titleSlug: "median-of-two-sorted-arrays",
+                difficulty: "Hard",
+                status: undefined,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+        ],
+    },
+    {
+        id: 6,
+        username: "mangotree22",
+        updatedAt: new Date(),
+        roomId: "uWOHVqaJc3",
+        submissions: [
+            {
+                title: "Two Sum",
+                titleSlug: "two-sum",
+                difficulty: "Easy",
+                status: SubmissionStatus.Attempted,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Add Two Numbers",
+                titleSlug: "add-two-numbers",
+                difficulty: "Medium",
+                status: undefined,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Longest Substring Without Repeating Characters",
+                titleSlug: "longest-substring-without-repeating-characters",
+                difficulty: "Medium",
+                status: undefined,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+            {
+                title: "Median of Two Sorted Arrays",
+                titleSlug: "median-of-two-sorted-arrays",
+                difficulty: "Hard",
+                status: undefined,
+                updatedAt: new Date(),
+                url: "https://leetcode.com",
+            },
+        ],
+    },
+];

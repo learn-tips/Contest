@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <link
+            rel="apple-touch-icon"
+            sizes="180x180"
+            href="./assets/favicon/apple-touch-icon.png"
+        />
+        <link
+            rel="icon"
+            type="image/png"
+            sizes="32x32"
+            href="./assets/favicon/favicon-32x32.png"
+        />
+        <link
+            rel="icon"
+            type="image/png"
+            sizes="16x16"
+            href="./assets/favicon/favicon-16x16.png"
+        />
+        <link rel="manifest" href="./assets/favicon/site.webmanifest" />
+        <title>TIPS | Multiplayer rooms for LeetCode</title>
+    </head>
+    <body>
+        <script>
+            try {
+                const tipsboardDarkMode =
+                    localStorage.getItem("tipsboardDarkMode");
+                if (tipsboardDarkMode === "true" || !tipsboardDarkMode) {
+                    document.body.classList.add("dark");
+                } else {
+                    document.body.classList.remove("dark");
+                }
+            } catch (error) {
+                document.body.classList.add("dark");
+                console.error(
+                    "Unable to read from local storage while third-party cookies are disabled"
+                );
+            }
+
+            window.addEventListener("message", (event) => {
+                if (
+                    event.data?.extension !== "tipsboard" ||
+                    !("isDarkMode" in event.data)
+                ) {
+                    return;
+                }
+                try {
+                    if (event.data.isDarkMode) {
+                        document.body.classList.add("dark");
+                        localStorage.setItem("tipsboardDarkMode", "true");
+                    } else {
+                        document.body.classList.remove("dark");
+                        localStorage.setItem("tipsboardDarkMode", "false");
+                    }
+                } catch (error) {
+                    console.error("Unable to write to local storage");
+                }
+            });
+        </script>
+        <div id="tipsboard-root"></div>
+        <script type="module" src="./main.tsx"></script>
+    </body>
+</html>
