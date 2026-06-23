@@ -47,6 +47,18 @@ export async function createSubmission(
                 throw new Error("Invalid submission URL");
             }
 
+            if (
+                submissionStatus === SubmissionStatus.Accepted &&
+                !isConcreteLeetCodeSubmissionUrl(
+                    questionTitleSlug,
+                    submissionUrl
+                )
+            ) {
+                throw new Error(
+                    "Accepted submissions must include a concrete submission URL"
+                );
+            }
+
             let question = await prisma.question.findUnique({
                 where: {
                     titleSlug: questionTitleSlug,
@@ -208,4 +220,19 @@ function getSubmissionTime(
         result = `${hours}h ${result}`;
     }
     return result;
+}
+
+function isConcreteLeetCodeSubmissionUrl(
+    questionTitleSlug: string,
+    submissionUrl: string
+) {
+    const submissionUrlPrefix = `https://leetcode.com/problems/${questionTitleSlug}/submissions/`;
+    if (!submissionUrl.startsWith(submissionUrlPrefix)) {
+        return false;
+    }
+
+    const submissionId = submissionUrl
+        .slice(submissionUrlPrefix.length)
+        .replace(/\/$/, "");
+    return /^\d+$/.test(submissionId);
 }

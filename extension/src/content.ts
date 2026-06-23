@@ -34,7 +34,6 @@ async function main() {
               titleSlug: string;
               submittedAt: number;
               attemptId: string;
-              initialResultText?: string;
               submissionId?: string;
               finalMessageSent: boolean;
           }
@@ -525,7 +524,6 @@ async function main() {
             titleSlug: currentQuestionTitleSlug,
             submittedAt: now,
             attemptId,
-            initialResultText: getActiveResultPaneText(),
             finalMessageSent: false,
         };
 
@@ -545,7 +543,8 @@ async function main() {
 
         const startedAt = Date.now();
         const timeout = 45_000;
-        activeSubmitVerdictTimer = setInterval(() => {
+        let checkingRecentSubmissions = false;
+        activeSubmitVerdictTimer = setInterval(async () => {
             if (
                 Date.now() - startedAt > timeout ||
                 !isActiveSubmissionFor(titleSlug)
@@ -558,25 +557,35 @@ async function main() {
                 return;
             }
 
+            const activeAttempt = activeSubmissionAttempt;
+            if (!activeAttempt || activeAttempt.titleSlug !== titleSlug) {
+                clearActiveSubmitVerdictTimer();
+                return;
+            }
+
+            if (!activeAttempt.submissionId && !checkingRecentSubmissions) {
+                checkingRecentSubmissions = true;
+                try {
+                    const recentSubmissionVerdict =
+                        await getLatestRecentSubmissionVerdictForAttempt(
+                            titleSlug,
+                            activeAttempt.submittedAt
+                        );
+                    if (recentSubmissionVerdict) {
+                        postFinalSubmissionVerdict(
+                            titleSlug,
+                            recentSubmissionVerdict.submissionUrl,
+                            recentSubmissionVerdict.verdict
+                        );
+                        return;
+                    }
+                } finally {
+                    checkingRecentSubmissions = false;
+                }
+            }
+
             const submission = getCurrentSubmission();
             if (!submission || submission.titleSlug !== titleSlug) {
-                const activeAttempt = activeSubmissionAttempt;
-                if (!activeAttempt || activeAttempt.submissionId) {
-                    return;
-                }
-
-                const currentPageVerdict = findChangedActiveResultPaneVerdict(
-                    activeAttempt.initialResultText
-                );
-                if (!currentPageVerdict) {
-                    return;
-                }
-
-                postFinalSubmissionVerdict(
-                    titleSlug,
-                    constructPendingSubmissionUrl(titleSlug),
-                    currentPageVerdict
-                );
                 return;
             }
 
@@ -698,31 +707,94 @@ function findVerdictOnActiveResultPane() {
     );
 }
 
-function getActiveResultPaneText() {
-    return (
-        document
-        .querySelector("[data-e2e-locator='submission-result']")
-        ?.textContent?.replace(/\s+/g, " ")
-            .trim() ??
-        document.body.innerText
-            ?.replace(/\s+/g, " ")
-            .match(
-                new RegExp(
-                    `(${KNOWN_VERDICTS.join("|")})\\s+\\d+\\s*/\\s*\\d+\\s+testcases\\s+passed`,
-                    "i"
-                )
-            )?.[0]
-            ?.trim()
-    );
+type RecentLeetCodeSubmission = {
+    id?: number | string;
+    titleSlug?: string;
+    title_slug?: string;
+    statusDisplay?: string;
+    status_display?: string;
+    timestamp?: number | string;
+    url?: string;
+};
+
+type RecentLeetCodeSubmissionsResponse = {
+    submissions_dump?: RecentLeetCodeSubmission[];
+};
+
+async function getLatestRecentSubmissionVerdictForAttempt(
+    titleSlug: string,
+    submittedAt: number
+) {
+    try {
+        const response = await fetch(
+            "https://leetcode.com/api/submissions/?offset=0&limit=20",
+            { credentials: "include" }
+        );
+        if (!response.ok) {
+            return;
+        }
+
+        const data =
+            (await response.json()) as RecentLeetCodeSubmissionsResponse;
+        const newestMatchingSubmission = data.submissions_dump
+            ?.filter((submission) => {
+                const submissionTitleSlug =
+                    submission.title_slug ?? submission.titleSlug;
+                const submittedAtSeconds = Number(submission.timestamp);
+                const verdict = normalizeVerdictText(
+                    submission.status_display ?? submission.statusDisplay
+                );
+
+                return (
+                    submissionTitleSlug === titleSlug &&
+                    !!verdict &&
+                    Number.isFinite(submittedAtSeconds) &&
+                    submittedAtSeconds * 1000 >= submittedAt - 60_000 &&
+                    submittedAtSeconds * 1000 <= Date.now() + 30_000
+                );
+            })
+            .sort((a, b) => Number(b.timestamp) - Number(a.timestamp))[0];
+
+        if (!newestMatchingSubmission) {
+            return;
+        }
+
+        const verdict = normalizeVerdictText(
+            newestMatchingSubmission.status_display ??
+                newestMatchingSubmission.statusDisplay
+        );
+        const submissionUrl = constructRecentSubmissionUrl(
+            titleSlug,
+            newestMatchingSubmission
+        );
+        if (!verdict || !submissionUrl) {
+            return;
+        }
+
+        return { submissionUrl, verdict };
+    } catch {
+        return;
+    }
 }
 
-function findChangedActiveResultPaneVerdict(initialResultText?: string) {
-    const resultText = getActiveResultPaneText();
-    if (!resultText || resultText === initialResultText) {
+function constructRecentSubmissionUrl(
+    titleSlug: string,
+    submission: RecentLeetCodeSubmission
+) {
+    if (
+        submission.url?.startsWith(
+            `https://leetcode.com/problems/${titleSlug}/submissions/`
+        )
+    ) {
+        return submission.url;
+    }
+
+    const submissionId = String(submission.id ?? "");
+    if (!/^\d+$/.test(submissionId)) {
         return;
     }
 
-    return normalizeVerdictText(resultText) ?? findResultHeaderVerdictInText(resultText);
+    return constructSubmissionUrl(titleSlug, submissionId);
 }
 
 function findVerdictOnCurrentSubmissionPage(
