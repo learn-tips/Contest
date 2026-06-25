@@ -19,6 +19,8 @@ import {
     RoomSettings,
 } from "../../types/RoomSettings";
 
+const ROOM_HISTORY_RETENTION_THRESHOLD_MS = 60 * 60 * 1000;
+
 export async function getRoomPlayers(
     req: Request,
     res: Response<PlayerWithSubmissions[]>,
@@ -387,10 +389,27 @@ export async function exitRoomFunction(req: Request) {
                 roomId: roomId,
             },
         });
+        const persistedRoom = await prisma.room.findUnique({
+            where: {
+                id: roomId,
+            },
+            select: {
+                createdAt: true,
+            },
+        });
+        const roomCreatedAt = room?.createdAt || persistedRoom?.createdAt;
+        const roomAgeInMilliseconds = roomCreatedAt
+            ? Date.now() - new Date(roomCreatedAt).getTime()
+            : undefined;
+            
+        const shouldDeleteEmptyRoom =
+            currentUsers.length == 0 &&
+            roomAgeInMilliseconds !== undefined &&
+            roomAgeInMilliseconds < ROOM_HISTORY_RETENTION_THRESHOLD_MS;
 
-        // If there are no users left in the room, try to delete it from the db.
+        // Only clean up empty rooms that are less than one hour old.
         // Cleanup should not prevent the current user from leaving the room.
-        if (currentUsers.length == 0) {
+        if (shouldDeleteEmptyRoom) {
             try {
                 await prisma.submission.deleteMany({
                     where: {
