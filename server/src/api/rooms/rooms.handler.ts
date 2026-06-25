@@ -379,7 +379,6 @@ export async function exitRoomFunction(req: Request) {
                     roomId: null,
                 },
                 where: {
-                    
                     id: req.session.passport.user.id,
                 },
             });
