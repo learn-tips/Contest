@@ -399,11 +399,13 @@ export async function exitRoomFunction(req: Request) {
         const roomAgeInMilliseconds = roomCreatedAt
             ? Date.now() - new Date(roomCreatedAt).getTime()
             : undefined;
+
+        const ROOM_HISTORY_RETENTION_THRESHOLD_MS = 60 * 60 * 1000;
             
         const shouldDeleteEmptyRoom =
             currentUsers.length == 0 &&
             roomAgeInMilliseconds !== undefined &&
-            roomAgeInMilliseconds < 60 * 60 * 1000;
+            roomAgeInMilliseconds < ROOM_HISTORY_RETENTION_THRESHOLD_MS;
 
         // Only clean up empty rooms that are less than one hour old.
         // Cleanup should not prevent the current user from leaving the room.
