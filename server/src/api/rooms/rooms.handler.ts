@@ -19,6 +19,8 @@ import {
     RoomSettings,
 } from "../../types/RoomSettings";
 
+const ROOM_HISTORY_RETENTION_THRESHOLD_MS = 60 * 60 * 1000;
+
 export async function getRoomPlayers(
     req: Request,
     res: Response<PlayerWithSubmissions[]>,
@@ -377,6 +379,7 @@ export async function exitRoomFunction(req: Request) {
                     roomId: null,
                 },
                 where: {
+                    
                     id: req.session.passport.user.id,
                 },
             });
@@ -399,8 +402,6 @@ export async function exitRoomFunction(req: Request) {
         const roomAgeInMilliseconds = roomCreatedAt
             ? Date.now() - new Date(roomCreatedAt).getTime()
             : undefined;
-
-        const ROOM_HISTORY_RETENTION_THRESHOLD_MS = 60 * 60 * 1000;
             
         const shouldDeleteEmptyRoom =
             currentUsers.length == 0 &&
