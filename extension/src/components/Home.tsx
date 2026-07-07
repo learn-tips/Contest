@@ -4,15 +4,38 @@ import CreateRoomButton from "./buttons/CreateRoomButton";
 import { SessionResponse } from "../types/Session";
 import JoinRoomByIdButton from "./buttons/JoinRoomByIdButton";
 import RoomSettingsButton from "./buttons/RoomSettingsButton";
+import { useState } from "react";
+
+const PREFERRED_NICKNAME_STORAGE_KEY = "tipsboardPreferredNickname";
 
 export default function Home({ session }: { session: SessionResponse }) {
     let { username, picture, room } = session;
+    let [preferredNickname, setPreferredNickname] = useState(() => {
+        return localStorage.getItem(PREFERRED_NICKNAME_STORAGE_KEY) || "";
+    });
+
+    function handlePreferredNicknameChange(nickname: string) {
+        const sanitizedNickname = nickname.replace(/[^A-Za-z0-9]/g, "");
+        setPreferredNickname(sanitizedNickname);
+
+        if (sanitizedNickname) {
+            localStorage.setItem(
+                PREFERRED_NICKNAME_STORAGE_KEY,
+                sanitizedNickname
+            );
+        } else {
+            localStorage.removeItem(PREFERRED_NICKNAME_STORAGE_KEY);
+        }
+    }
 
     if (room) {
-        let { roomId, questions, userColor, createdAt, duration } = room;
+        let { roomId, questions, userColor, createdAt, duration, nickname } =
+            room;
         return (
             <Room
-                username={username}
+                accountUsername={username}
+                initialNickname={nickname}
+                preferredNickname={preferredNickname}
                 roomId={roomId}
                 questions={questions}
                 userColor={userColor}
@@ -40,6 +63,30 @@ export default function Home({ session }: { session: SessionResponse }) {
                         <div className="text-lg font-semibold text-lc-text-light dark:text-white">
                             {username}
                         </div>
+                    </div>
+                    <div className="mb-4 flex flex-col gap-1">
+                        <label
+                            htmlFor="preferred-nickname"
+                            className="text-xs font-medium text-gray-500 dark:text-gray-400"
+                        >
+                            Room nickname
+                        </label>
+                        <input
+                            id="preferred-nickname"
+                            value={preferredNickname}
+                            onChange={(event) =>
+                                handlePreferredNicknameChange(
+                                    event.target.value
+                                )
+                            }
+                            maxLength={32}
+                            className="rounded-md bg-lc-fg-light px-3 py-2 text-sm text-lc-text-light outline-none focus:ring-1 focus:ring-[#3A5BEF] dark:bg-lc-fg dark:text-white"
+                            placeholder={username}
+                            spellCheck="false"
+                            autoComplete="off"
+                            autoCapitalize="off"
+                            autoCorrect="off"
+                        />
                     </div>
 
                     <div className="flex flex-col items-center justify-center gap-y-4 rounded-xl border-[12px] border-[#EAF0FF] px-6 py-10 shadow-sm dark:border-[#26345F]">

@@ -6,6 +6,7 @@ const router = Router();
 router.get("/", RoomsHandler.getRoomPlayers);
 router.post("/", RoomsHandler.createRoom);
 router.post("/exit", RoomsHandler.exitRoom);
+router.patch("/nickname", RoomsHandler.updateRoomNickname);
 router.post("/:id", RoomsHandler.joinRoomById);
 
 export default router;

@@ -96,7 +96,7 @@ export async function createSubmission(
             }
 
             let response: PlayerWithSubmissions[] =
-                await prisma.$queryRaw`SELECT u.id, u.username, u."updatedAt", json_agg(json_build_object(
+                await prisma.$queryRaw`SELECT u.id, COALESCE(ru."nickname", u.username) AS username, u."updatedAt", json_agg(json_build_object(
                 'questionId', q.id,
                 'title', q.title,
                 'titleSlug', q."titleSlug",
@@ -106,11 +106,12 @@ export async function createSubmission(
                 'url', s.url
             ))  as submissions
             FROM "User" u
+            LEFT JOIN "RoomUser" ru ON ru."roomId" = ${roomId} AND ru."userId" = u.id
             LEFT JOIN "RoomQuestion" rq ON u."roomId" = rq."roomId"
             LEFT JOIN "Question" q ON rq."questionId" = q.id
             LEFT JOIN "Submission" s ON s."questionId" = rq."questionId" AND s."roomId" = rq."roomId" AND s."userId" = u.id
             WHERE rq."roomId" = ${roomId} AND u.id = ${userId}
-            GROUP BY u.id;`;
+            GROUP BY u.id, ru."nickname";`;
 
             let allAccepted = response.every((player) => {
                 return player.submissions.every((submission) => {
@@ -137,7 +138,7 @@ export async function createSubmission(
                 completedTimeString
             ) {
                 sendCompletedRoomMessage(
-                    req.session.passport.user.username,
+                    response[0].username,
                     room,
                     completedTimeString
                 );
