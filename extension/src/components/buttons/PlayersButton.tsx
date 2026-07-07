@@ -199,7 +199,7 @@ export default function PlayersButton({
             >
                 <div className="flex flex-row items-baseline gap-2">
                     <GraphIcon />
-                    <div>TIPS</div>
+                    <div>Scoreboard</div>
                 </div>
             </div>
 
@@ -244,7 +244,7 @@ export default function PlayersButton({
                                                         as="h3"
                                                         className="text-lg font-semibold leading-6 text-[#3A5BEF] dark:text-[#8EA2FF]"
                                                     >
-                                                        TIPS
+                                                        Scoreboard
                                                     </Dialog.Title>
                                                     <div className="text-xs text-gray-400">
                                                         {numberOfPlayersOnline} online · solved questions

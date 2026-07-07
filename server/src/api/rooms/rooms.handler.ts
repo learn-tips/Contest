@@ -8,6 +8,7 @@ import {
     setUserRoomSession,
     getUserRoomSession,
     deleteUserRoomSession,
+    redisClient,
 } from "../app";
 import { MessageInterface, ChatEvent } from "../../types/Message";
 import { RoomSession, SessionResponse } from "../../types/Session";
@@ -20,6 +21,10 @@ import {
 } from "../../types/RoomSettings";
 
 const ROOM_HISTORY_RETENTION_THRESHOLD_MS = 60 * 60 * 1000;
+const ROOM_NICKNAME_MAX_LENGTH = 32;
+const ROOM_NICKNAME_PATTERN = /^[A-Za-z0-9]+$/;
+const ROOM_NICKNAME_RATE_LIMIT_MAX_CHANGES = 5;
+const ROOM_NICKNAME_RATE_LIMIT_WINDOW_SECONDS = 60 * 60;
 
 export async function getRoomPlayers(
     req: Request,
@@ -34,7 +39,7 @@ export async function getRoomPlayers(
         let roomId = room.roomId;
         let response: PlayerWithSubmissions[] = await prisma.$queryRaw`SELECT 
         u."id",
-        u."username",
+        COALESCE(ru."nickname", u."username") AS "username",
         u."roomId",
         ru."joinedAt" as "updatedAt",
         json_agg(
@@ -54,7 +59,7 @@ export async function getRoomPlayers(
     JOIN "RoomQuestion" rq ON r."id" = rq."roomId"
     JOIN "Question" q ON rq."questionId" = q."id"
     LEFT JOIN "Submission" s ON u."id" = s."userId" AND s."questionId" = q."id" AND s."roomId" = r."id"
-    GROUP BY u."id", ru."joinedAt", u."roomId";`;
+    GROUP BY u."id", ru."nickname", ru."joinedAt", u."roomId";`;
         return res.json(response);
     } catch (error) {
         return next(error);
@@ -82,6 +87,7 @@ export async function createRoom(
                 selections,
                 questionSelections,
             } = roomSettings.questionFilter;
+            const nickname = parseRoomNickname(req.body?.nickname);
 
             let questions: Question[];
             switch (filterKind) {
@@ -194,6 +200,7 @@ export async function createRoom(
                 data: {
                     userId: user.id,
                     roomId: newRoomId,
+                    nickname,
                 },
             });
 
@@ -208,9 +215,13 @@ export async function createRoom(
                 createdAt: newRoom.createdAt,
                 duration: newRoom.duration,
                 joinedAt,
+                nickname,
             };
             await setUserRoomSession(req.user.id, roomSession);
-            sendJoinRoomMessage(req.user.username, roomSession);
+            sendJoinRoomMessage(
+                getRoomDisplayName(req.user.username, nickname),
+                roomSession
+            );
 
             return res.redirect("../sessions");
         });
@@ -271,19 +282,39 @@ export async function joinRoomById(
                     },
                 },
             });
+            const requestedNickname = parseRoomNickname(req.body?.nickname);
+            const shouldUpdateNickname = "nickname" in req.body;
 
             let joinedAt: Date;
+            let nickname: string | null;
             if (!roomUser) {
                 // Update the room user table with the join time
                 let roomUser = await prisma.roomUser.create({
                     data: {
                         userId: user.id,
                         roomId: roomId,
+                        nickname: requestedNickname,
                     },
                 });
                 joinedAt = roomUser.joinedAt;
+                nickname = roomUser.nickname;
+            } else if (shouldUpdateNickname) {
+                let updatedRoomUser = await prisma.roomUser.update({
+                    where: {
+                        roomId_userId: {
+                            roomId: roomId,
+                            userId: user.id,
+                        },
+                    },
+                    data: {
+                        nickname: requestedNickname,
+                    },
+                });
+                joinedAt = updatedRoomUser.joinedAt;
+                nickname = updatedRoomUser.nickname;
             } else {
                 joinedAt = roomUser.joinedAt;
+                nickname = roomUser.nickname;
             }
 
             // Update the room session
@@ -294,11 +325,64 @@ export async function joinRoomById(
                 createdAt: room.createdAt,
                 duration: room.duration,
                 joinedAt: joinedAt,
+                nickname,
             };
             await setUserRoomSession(req.user.id, roomSession);
-            sendJoinRoomMessage(req.user.username, roomSession);
+            sendJoinRoomMessage(
+                getRoomDisplayName(req.user.username, nickname),
+                roomSession
+            );
 
             return res.redirect("../sessions");
+        });
+    } catch (error) {
+        return next(error);
+    }
+}
+
+export async function updateRoomNickname(
+    req: Request,
+    res: Response<{ nickname: string | null; username: string }>,
+    next: NextFunction
+) {
+    try {
+        await prisma.$transaction(async (prisma) => {
+            if (!req.user) {
+                throw new Error(
+                    "Request authenticated, but user session not found"
+                );
+            }
+
+            let room = await getUserRoomSession(req.user.id);
+            let roomId = room?.roomId || req.user.roomId;
+            if (!roomId) {
+                throw new Error("Could not find a room for the current user");
+            }
+
+            let nickname = parseRoomNickname(req.body?.nickname);
+            await enforceRoomNicknameRateLimit(req.user.id, roomId);
+            await prisma.roomUser.update({
+                where: {
+                    roomId_userId: {
+                        roomId,
+                        userId: req.user.id,
+                    },
+                },
+                data: {
+                    nickname,
+                },
+            });
+
+            if (room) {
+                await setUserRoomSession(req.user.id, {
+                    ...room,
+                    nickname,
+                });
+            }
+
+            let username = getRoomDisplayName(req.user.username, nickname);
+            io.to(roomId).emit("players-updated");
+            return res.json({ nickname, username });
         });
     } catch (error) {
         return next(error);
@@ -439,7 +523,10 @@ export async function exitRoomFunction(req: Request) {
         let userColor = room?.userColor || generateRandomUserColor();
         let exitMessage: MessageInterface = {
             timestamp: Date.now(),
-            username: req.session.passport.user.username,
+            username: getRoomDisplayName(
+                req.session.passport.user.username,
+                room?.nickname
+            ),
             body: "left the room.",
             chatEvent: ChatEvent.Leave,
             color: userColor,
@@ -466,6 +553,57 @@ function sendJoinRoomMessage(username: string, room: RoomSession) {
     setTimeout(() => {
         io.to(room.roomId).emit("chat-message", newJoinMessage);
     }, 500);
+}
+
+function parseRoomNickname(nickname: unknown) {
+    if (nickname === undefined || nickname === null) {
+        return null;
+    }
+
+    if (typeof nickname !== "string") {
+        throw new Error("Invalid nickname");
+    }
+
+    const trimmedNickname = nickname.trim();
+    if (!trimmedNickname) {
+        return null;
+    }
+
+    if (trimmedNickname.length > ROOM_NICKNAME_MAX_LENGTH) {
+        throw new Error(
+            `Nickname must be ${ROOM_NICKNAME_MAX_LENGTH} characters or fewer`
+        );
+    }
+
+    if (!ROOM_NICKNAME_PATTERN.test(trimmedNickname)) {
+        throw new Error("Nickname can only contain letters and numbers");
+    }
+
+    return trimmedNickname;
+}
+
+function getRoomDisplayName(username: string, nickname?: string | null) {
+    return nickname || username;
+}
+
+async function enforceRoomNicknameRateLimit(
+    userId: string | number,
+    roomId: string
+) {
+    const rateLimitKey = `roomNicknameChange:${roomId}:${userId}`;
+    const changeCount = await redisClient.incr(rateLimitKey);
+    if (changeCount === 1) {
+        await redisClient.expire(
+            rateLimitKey,
+            ROOM_NICKNAME_RATE_LIMIT_WINDOW_SECONDS
+        );
+    }
+
+    if (changeCount > ROOM_NICKNAME_RATE_LIMIT_MAX_CHANGES) {
+        throw new Error(
+            `Nickname can only be changed ${ROOM_NICKNAME_RATE_LIMIT_MAX_CHANGES} times every hour`
+        );
+    }
 }
 
 function getNumberOfQuestionsPerDifficulty(

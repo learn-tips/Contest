@@ -6,6 +6,16 @@ import {
 } from "@tanstack/react-query";
 import { RoomSettings, defaultRoomSettings } from "../../types/RoomSettings";
 
+const PREFERRED_NICKNAME_STORAGE_KEY = "tipsboardPreferredNickname";
+
+function getPreferredNickname() {
+    return (
+        localStorage
+            .getItem(PREFERRED_NICKNAME_STORAGE_KEY)
+            ?.replace(/[^A-Za-z0-9]/g, "") || ""
+    );
+}
+
 async function createRoom() {
     let roomSettingsString = localStorage.getItem("roomSettings");
     let storedRoomSettings: RoomSettings;
@@ -37,7 +47,10 @@ async function createRoom() {
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify(storedRoomSettings),
+        body: JSON.stringify({
+            ...storedRoomSettings,
+            nickname: getPreferredNickname(),
+        }),
     });
     if (!response.ok) {
         throw new Error("Failed to create room");

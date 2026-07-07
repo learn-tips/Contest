@@ -43,14 +43,18 @@ function kebabToTitle(string: string): string {
 }
 
 export default function Room({
-    username,
+    accountUsername,
+    initialNickname,
+    preferredNickname,
     roomId,
     questions,
     userColor,
     createdAt,
     duration,
 }: {
-    username: string;
+    accountUsername: string;
+    initialNickname?: string | null;
+    preferredNickname: string;
     roomId: string;
     questions: QuestionInterface[];
     userColor: string;
@@ -62,9 +66,33 @@ export default function Room({
     let messagesRef = useRef<HTMLUListElement>(null);
     let [messages, setMessages] = useState<MessageInterface[]>([]);
     let [hasClickedCopyIcon, setHasClickedCopyIcon] = useState(false);
+    let [displayName, setDisplayName] = useState(
+        initialNickname || accountUsername
+    );
     let socketRef = useRef<Socket | null>(null);
+    let displayNameRef = useRef(displayName);
+    let appliedPreferredNicknameRef = useRef<string | undefined>();
     let processedSubmissionEventIds = useRef(new Set<string>());
     const queryClient = useQueryClient();
+
+    useEffect(() => {
+        displayNameRef.current = displayName;
+    }, [displayName]);
+
+    useEffect(() => {
+        const normalizedPreferredNickname = preferredNickname.trim();
+        const normalizedInitialNickname = initialNickname || "";
+        if (
+            appliedPreferredNicknameRef.current ===
+                normalizedPreferredNickname ||
+            normalizedPreferredNickname === normalizedInitialNickname
+        ) {
+            return;
+        }
+
+        appliedPreferredNicknameRef.current = normalizedPreferredNickname;
+        updateRoomNickname(normalizedPreferredNickname);
+    }, [initialNickname, preferredNickname, roomId]);
 
     function handleSubmitMessage(event: React.SyntheticEvent) {
         event.preventDefault();
@@ -82,7 +110,7 @@ export default function Room({
         let inputText = inputRef.current.value.trim();
         let newChatMessage: MessageInterface = {
             timestamp: Date.now(),
-            username: username,
+            username: displayName,
             body: inputText,
             chatEvent: ChatEvent.Message,
             color: userColor,
@@ -100,6 +128,35 @@ export default function Room({
         copyIconTimer = setTimeout(() => {
             setHasClickedCopyIcon(() => false);
         }, 2000);
+    }
+
+    async function updateRoomNickname(nickname: string) {
+        try {
+            let response = await fetch(`${SERVER_URL}/rooms/nickname`, {
+                credentials: "include",
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    nickname,
+                }),
+            });
+
+            if (!response.ok) {
+                console.error("Failed to update nickname");
+                return;
+            }
+
+            let nicknameResponse: {
+                nickname: string | null;
+                username: string;
+            } = await response.json();
+            setDisplayName(nicknameResponse.username);
+            queryClient.invalidateQueries(["players"]);
+        } catch {
+            console.error("Failed to update nickname");
+        }
     }
 
     function readStandaloneProblem() {
@@ -143,7 +200,7 @@ export default function Room({
 
         let newAcceptedMessage: MessageInterface = {
             timestamp: Date.now(),
-            username: username,
+            username: displayNameRef.current,
             body: `solved ${problem.title}!`,
             chatEvent: ChatEvent.Accepted,
             color: userColor,
@@ -207,6 +264,10 @@ export default function Room({
             socket.emit("keep-alive", "keep-alive-message-client");
         });
 
+        socket.on("players-updated", () => {
+            queryClient.invalidateQueries(["players"]);
+        });
+
         // Store the socket in a ref so we can reference it outside this useEffect
         socketRef.current = socket;
 
@@ -255,7 +316,7 @@ export default function Room({
                 case "accepted":
                     let newAcceptedMessage: MessageInterface = {
                         timestamp: Date.now(),
-                        username: username,
+                        username: displayNameRef.current,
                         body: `solved ${kebabToTitle(
                             event.data.currentProblem
                         )}!`,

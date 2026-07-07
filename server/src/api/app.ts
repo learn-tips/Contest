@@ -61,7 +61,7 @@ if (!process.env.REDIS_URL) {
 if (!process.env.EXPRESS_SESSION_SECRET) {
     throw new Error("Need an express-session secret");
 }
-let redisClient = new Redis(process.env.REDIS_URL);
+export let redisClient = new Redis(process.env.REDIS_URL);
 
 app.set("trust proxy", 1);
 let sessionMiddleware = session({

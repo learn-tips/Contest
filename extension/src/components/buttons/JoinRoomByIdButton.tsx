@@ -6,6 +6,16 @@ import {
 } from "@tanstack/react-query";
 import { SyntheticEvent, useRef } from "react";
 
+const PREFERRED_NICKNAME_STORAGE_KEY = "tipsboardPreferredNickname";
+
+function getPreferredNickname() {
+    return (
+        localStorage
+            .getItem(PREFERRED_NICKNAME_STORAGE_KEY)
+            ?.replace(/[^A-Za-z0-9]/g, "") || ""
+    );
+}
+
 async function joinRoomById(roomId: string) {
     let response = await fetch(`${SERVER_URL}/rooms/${roomId}`, {
         credentials: "include",
@@ -13,6 +23,9 @@ async function joinRoomById(roomId: string) {
         headers: {
             "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+            nickname: getPreferredNickname(),
+        }),
     });
     if (!response.ok) {
         throw new Error("Failed to join room by id");

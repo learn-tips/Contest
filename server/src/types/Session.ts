@@ -19,4 +19,5 @@ export interface RoomSession {
     createdAt: Date;
     duration?: number | null;
     joinedAt: Date;
+    nickname?: string | null;
 }

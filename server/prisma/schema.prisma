@@ -45,6 +45,7 @@ model RoomUser {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId   Int
   joinedAt DateTime @default(now())
+  nickname String?
 
   @@id([roomId, userId])
 }
