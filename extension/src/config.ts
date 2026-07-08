@@ -1,8 +1,6 @@
 import { AuthProvider } from "./types/AuthProvider";
 import githubIcon from "./assets/github.svg";
 import googleIcon from "./assets/google.png";
-import discordIcon from "./assets/discord.svg";
-import twitchIcon from "./assets/twitch.svg";
 
 function resolveEnvUrl(value: string | undefined, fallback: string) {
     return value && !value.includes("${") ? value : fallback;
@@ -27,20 +25,6 @@ const authProviders: AuthProvider[] = [
         icon: googleIcon,
         color: "bg-google-bg",
         hoverColor: "hover:bg-google-bg-hover",
-    },
-    {
-        name: "Discord",
-        authProviderEndpoint: "auth/discord",
-        icon: discordIcon,
-        color: "bg-discord-bg",
-        hoverColor: "hover:bg-discord-bg-hover",
-    },
-    {
-        name: "Twitch",
-        authProviderEndpoint: "auth/twitch",
-        icon: twitchIcon,
-        color: "bg-twitch-bg",
-        hoverColor: "hover:bg-twitch-bg-hover",
     },
 ];
 

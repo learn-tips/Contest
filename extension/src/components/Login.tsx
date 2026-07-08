@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import Home from "./Home";
 import CookiesWarning from "./CookiesWarning";
 import { SERVER_URL, authProviders } from "../config";
@@ -24,6 +25,13 @@ async function fetchSession() {
 }
 
 export default function Login() {
+    useEffect(() => {
+        let searchParams = new URLSearchParams(window.location.search);
+        if (searchParams.get("auth") === "success") {
+            window.close();
+        }
+    }, []);
+
     let { data: session, isLoading } = useQuery<SessionResponse | boolean>(
         ["session"],
         fetchSession
@@ -50,7 +58,7 @@ export default function Login() {
                     alt="TIPS logo"
                 />
                 <div className="text-xl font-semibold text-[#3A5BEF] dark:text-[#8EA2FF]">
-                    TIPS
+                    TIPS Contest Platform
                 </div>
                 <div className="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">
                     multiplayer problem-solving rooms

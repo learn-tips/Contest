@@ -5,7 +5,20 @@ import passport from "passport";
 const router = Router();
 
 const FAILURE_REDIRECT_URL = process.env.FAILURE_REDIRECT_URL;
-const SUCCESS_REDIRECT_URL = process.env.SUCCESS_REDIRECT_URL;
+const successRedirectUrl =
+    process.env.APP_URL || process.env.SUCCESS_REDIRECT_URL || "/";
+
+function withAuthSuccessParam(url: string) {
+    try {
+        let redirectUrl = new URL(url);
+        redirectUrl.searchParams.set("auth", "success");
+        return redirectUrl.toString();
+    } catch {
+        return url;
+    }
+}
+
+const SUCCESS_REDIRECT_URL = withAuthSuccessParam(successRedirectUrl);
 
 router.get("/github", passport.authenticate("github"));
 router.get(
@@ -23,23 +36,6 @@ router.get(
         successRedirect: SUCCESS_REDIRECT_URL,
     })
 );
-router.get("/discord", passport.authenticate("discord"));
-router.get(
-    "/discord/callback",
-    passport.authenticate("discord", {
-        failureRedirect: FAILURE_REDIRECT_URL,
-        successRedirect: SUCCESS_REDIRECT_URL,
-    })
-);
-router.get("/twitch", passport.authenticate("twitch"));
-router.get(
-    "/twitch/callback",
-    passport.authenticate("twitch", {
-        failureRedirect: FAILURE_REDIRECT_URL,
-        successRedirect: SUCCESS_REDIRECT_URL,
-    })
-);
-
 router.delete("/signout", AuthHandler.signOut);
 
 export default router;

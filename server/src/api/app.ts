@@ -8,10 +8,8 @@ import express, {
 import ResponseMessage, { SessionResponse } from "../types/Session";
 import { instrument } from "@socket.io/admin-ui";
 import {
-    DiscordProfile,
     GitHubProfile,
     GoogleProfile,
-    TwitchProfile,
 } from "../types/authProfiles";
 import helmet from "helmet";
 import cors from "cors";
@@ -27,11 +25,9 @@ import passport from "passport";
 import Redis from "ioredis";
 import { User } from "@prisma/client";
 import prisma from "../index";
-import { Strategy as TwitchStrategy, Scope } from "@hewmen/passport-twitch";
 import { RoomSession } from "../types/Session";
 const GitHubStrategy = require("passport-github2").Strategy;
 const GoogleStrategy = require("passport-google-oauth20");
-const DiscordStrategy = require("passport-discord").Strategy;
 let RedisStore = require("connect-redis")(session);
 import { exitRoomFunction } from "./rooms/rooms.handler";
 import { MessageInterface } from "../types/Message";
@@ -158,86 +154,6 @@ passport.use(
         }
     )
 );
-passport.use(
-    // https://discord.com/developers/applications
-    new DiscordStrategy(
-        {
-            clientID: process.env.DISCORD_CLIENT_ID || "placeholder",
-            clientSecret: process.env.DISCORD_CLIENT_SECRET || "placeholder",
-            callbackURL: "/auth/discord/callback",
-            scope: "identify",
-        },
-        async function (
-            accessToken: string,
-            refreshToken: string,
-            profile: DiscordProfile,
-            done: any
-        ) {
-            try {
-                let user = await prisma.user.upsert({
-                    where: {
-                        provider_providerUserId: {
-                            provider: profile.provider,
-                            providerUserId: profile.id,
-                        },
-                    },
-                    update: {},
-                    create: {
-                        username: profile.username,
-                        picture:
-                            profile.id && profile.avatar
-                                ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}`
-                                : null,
-                        provider: profile.provider,
-                        providerUserId: profile.id,
-                    },
-                });
-                return done(null, user);
-            } catch (error) {
-                return done(error, null);
-            }
-        }
-    )
-);
-passport.use(
-    // https://dev.twitch.tv/console/apps
-    new TwitchStrategy(
-        {
-            clientID: process.env.TWITCH_CLIENT_ID || "placeholder",
-            clientSecret: process.env.TWITCH_CLIENT_SECRET || "placeholder",
-            callbackURL: "/auth/twitch/callback",
-            scope: [Scope.UserReadBroadcast],
-        },
-        async function (
-            accessToken: string,
-            refreshToken: string,
-            profile: TwitchProfile,
-            done: any
-        ) {
-            try {
-                let user = await prisma.user.upsert({
-                    where: {
-                        provider_providerUserId: {
-                            provider: profile.provider,
-                            providerUserId: profile.id,
-                        },
-                    },
-                    update: {},
-                    create: {
-                        username: profile.display_name,
-                        picture: profile.profile_image_url,
-                        provider: profile.provider,
-                        providerUserId: profile.id,
-                    },
-                });
-                return done(null, user);
-            } catch (error) {
-                return done(error, null);
-            }
-        }
-    )
-);
-
 passport.serializeUser((user, done) => {
     done(null, user);
 });

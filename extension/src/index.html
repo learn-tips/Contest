@@ -22,10 +22,19 @@
             href="./assets/favicon/favicon-16x16.png"
         />
         <link rel="manifest" href="./assets/favicon/site.webmanifest" />
-        <title>TIPS | Multiplayer rooms for LeetCode</title>
+        <title>TIPS Contest Platform | Multiplayer rooms for LeetCode</title>
     </head>
     <body>
         <script>
+            const tipsboardAuthParams = new URLSearchParams(
+                window.location.search
+            );
+            if (tipsboardAuthParams.get("auth") === "success") {
+                window.close();
+                document.documentElement.innerHTML =
+                    '<body style="margin:0;background:#282828;color:#f5f5f5;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;display:grid;min-height:100vh;place-items:center;"><div style="text-align:center;"><strong>Signed in successfully.</strong><br /><span style="color:#b5b5b5;">You can close this tab.</span></div></body>';
+            }
+
             try {
                 const tipsboardDarkMode =
                     localStorage.getItem("tipsboardDarkMode");
