@@ -20,7 +20,7 @@ export default defineConfig({
                     return assetInfo.name === "content" ||
                         assetInfo.name === "panel"
                         ? "[name].js"
-                        : "assets/[name].js";
+                        : "assets/[name]-[hash].js";
                 },
                 assetFileNames: "assets/[name][extname]",
             },

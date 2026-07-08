@@ -7,6 +7,15 @@ const APP_URL = resolveEnvUrl(
     "https://contest.techinterviewprep.support"
 );
 
+function getAppFrameUrl() {
+    const appFrameUrl = new URL(APP_URL);
+    appFrameUrl.searchParams.set(
+        "extensionVersion",
+        chrome.runtime.getManifest().version
+    );
+    return appFrameUrl.toString();
+}
+
 const XIconSVG = `
 <svg xmlns="http://www.w3.org/2000/svg" class="xicon-svg" viewBox="0 0 24 24" width="18" height="18">
 <path
@@ -41,7 +50,7 @@ async function main() {
         | undefined;
     const reactRoot = document.createElement("iframe");
 
-    reactRoot.src = APP_URL;
+    reactRoot.src = getAppFrameUrl();
     reactRoot.id = "tipsboard-iframe";
     reactRoot.allow = "clipboard-read; clipboard-write";
 

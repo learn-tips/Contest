@@ -36,23 +36,6 @@ router.get(
         successRedirect: SUCCESS_REDIRECT_URL,
     })
 );
-router.get("/discord", passport.authenticate("discord"));
-router.get(
-    "/discord/callback",
-    passport.authenticate("discord", {
-        failureRedirect: FAILURE_REDIRECT_URL,
-        successRedirect: SUCCESS_REDIRECT_URL,
-    })
-);
-router.get("/twitch", passport.authenticate("twitch"));
-router.get(
-    "/twitch/callback",
-    passport.authenticate("twitch", {
-        failureRedirect: FAILURE_REDIRECT_URL,
-        successRedirect: SUCCESS_REDIRECT_URL,
-    })
-);
-
 router.delete("/signout", AuthHandler.signOut);
 
 export default router;

@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "TIPS-Contest-Extensions",
+    "name": "TIPS Contest Platform",
     "version": "0.1.15",
     "description": "Shared TIPS rooms for LeetCode.",
     "homepage_url": "https://contest.techinterviewprep.support",
