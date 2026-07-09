@@ -12,7 +12,7 @@ function getPreferredNickname() {
     return (
         localStorage
             .getItem(PREFERRED_NICKNAME_STORAGE_KEY)
-            ?.replace(/[^A-Za-z0-9]/g, "") || ""
+            ?.replace(/[^A-Za-z0-9 ]/g, "") || ""
     );
 }
 
