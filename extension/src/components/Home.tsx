@@ -15,7 +15,7 @@ export default function Home({ session }: { session: SessionResponse }) {
     });
 
     function handlePreferredNicknameChange(nickname: string) {
-        const sanitizedNickname = nickname.replace(/[^A-Za-z0-9]/g, "");
+        const sanitizedNickname = nickname.replace(/[^A-Za-z0-9 ]/g, "");
         setPreferredNickname(sanitizedNickname);
 
         if (sanitizedNickname) {

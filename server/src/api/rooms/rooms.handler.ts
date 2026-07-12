@@ -22,7 +22,7 @@ import {
 
 const ROOM_HISTORY_RETENTION_THRESHOLD_MS = 60 * 60 * 1000;
 const ROOM_NICKNAME_MAX_LENGTH = 32;
-const ROOM_NICKNAME_PATTERN = /^[A-Za-z0-9]+$/;
+const ROOM_NICKNAME_PATTERN = /^[A-Za-z0-9 ]+$/;
 const ROOM_NICKNAME_RATE_LIMIT_MAX_CHANGES = 5;
 const ROOM_NICKNAME_RATE_LIMIT_WINDOW_SECONDS = 60 * 60;
 
@@ -576,7 +576,9 @@ function parseRoomNickname(nickname: unknown) {
     }
 
     if (!ROOM_NICKNAME_PATTERN.test(trimmedNickname)) {
-        throw new Error("Nickname can only contain letters and numbers");
+        throw new Error(
+            "Nickname can only contain letters, numbers, and spaces"
+        );
     }
 
     return trimmedNickname;
