@@ -13,7 +13,7 @@ export async function createSubmission(
     next: NextFunction
 ) {
     try {
-        await prisma.$transaction(async (prisma) => {
+        const completion = await prisma.$transaction(async (prisma) => {
             let room = await getUserRoomSession(req.session.passport.user.id);
             if (!room?.roomId) {
                 throw new Error("Could not find a room for the current user");
@@ -27,6 +27,13 @@ export async function createSubmission(
                 questionTitleSlug,
                 url: submissionUrl,
             } = submissionRequestBody;
+
+            const prefix = `https://leetcode.com/problems/${questionTitleSlug}/submissions/`;
+            if (typeof submissionUrl !== "string" || !submissionUrl.startsWith(prefix) ||
+                !/^\d+\/?$/.test(submissionUrl.slice(prefix.length))) {
+                res.status(400);
+                throw new Error("A concrete numeric LeetCode submission URL matching the problem is required");
+            }
 
             if (
                 submissionStatus !== SubmissionStatus.Accepted &&
@@ -58,6 +65,13 @@ export async function createSubmission(
                 );
             }
             let questionId = question.id;
+            const roomQuestion = await prisma.roomQuestion.findUnique({
+                where: { roomId_questionId: { roomId, questionId } },
+            });
+            if (!roomQuestion) {
+                res.status(400);
+                throw new Error("The submitted problem does not belong to this room");
+            }
             let existingSubmission = await prisma.submission.findUnique({
                 where: {
                     userId_questionId_roomId: {
@@ -92,11 +106,11 @@ export async function createSubmission(
             });
 
             if (submissionStatus !== SubmissionStatus.Accepted) {
-                return res.json(200);
+                return;
             }
 
             let response: PlayerWithSubmissions[] =
-                await prisma.$queryRaw`SELECT u.id, COALESCE(ru."nickname", u.username) AS username, u."updatedAt", json_agg(json_build_object(
+                await prisma.$queryRaw`SELECT u.id, COALESCE(ru."nickname", u.username) AS username, ru."joinedAt" AS "updatedAt", json_agg(json_build_object(
                 'questionId', q.id,
                 'title', q.title,
                 'titleSlug', q."titleSlug",
@@ -107,11 +121,12 @@ export async function createSubmission(
             ))  as submissions
             FROM "User" u
             LEFT JOIN "RoomUser" ru ON ru."roomId" = ${roomId} AND ru."userId" = u.id
-            LEFT JOIN "RoomQuestion" rq ON u."roomId" = rq."roomId"
+            LEFT JOIN "RoomQuestion" rq ON rq."roomId" = ${roomId}
             LEFT JOIN "Question" q ON rq."questionId" = q.id
             LEFT JOIN "Submission" s ON s."questionId" = rq."questionId" AND s."roomId" = rq."roomId" AND s."userId" = u.id
+                AND s.url !~* '/submissions/standalone([/?#]|$)'
             WHERE rq."roomId" = ${roomId} AND u.id = ${userId}
-            GROUP BY u.id, ru."nickname";`;
+            GROUP BY u.id, ru."nickname", ru."joinedAt";`;
 
             let allAccepted = response.every((player) => {
                 return player.submissions.every((submission) => {
@@ -137,14 +152,15 @@ export async function createSubmission(
                 allAccepted &&
                 completedTimeString
             ) {
-                sendCompletedRoomMessage(
-                    response[0].username,
-                    room,
-                    completedTimeString
-                );
+                return { username: response[0].username, room, completedTimeString };
             }
-            return res.json(200);
+            return;
         });
+        if (completion) {
+            sendCompletedRoomMessage(completion.username, completion.room, completion.completedTimeString);
+        }
+        return res.json({ confirmed: true, questionTitleSlug: req.body.questionTitleSlug,
+            url: req.body.url, submissionStatus: req.body.submissionStatus });
     } catch (error) {
         return next(error);
     }

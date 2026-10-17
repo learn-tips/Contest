@@ -59,6 +59,7 @@ export async function getRoomPlayers(
     JOIN "RoomQuestion" rq ON r."id" = rq."roomId"
     JOIN "Question" q ON rq."questionId" = q."id"
     LEFT JOIN "Submission" s ON u."id" = s."userId" AND s."questionId" = q."id" AND s."roomId" = r."id"
+        AND s.url !~* '/submissions/standalone([/?#]|$)'
     GROUP BY u."id", ru."nickname", ru."joinedAt", u."roomId";`;
         return res.json(response);
     } catch (error) {
