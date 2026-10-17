@@ -32,7 +32,7 @@ function parseSubmissionId(url) {
 }
 
 function sendMessage(tabId, submissionId) {
-    if (!tabId || tabId < 0) {
+    if (tabId == null || tabId < 0) {
         return;
     }
 
@@ -42,7 +42,7 @@ function sendMessage(tabId, submissionId) {
 }
 
 function sendVerdict(tabId, submissionId, verdict) {
-    if (!tabId || tabId < 0 || !verdict) {
+    if (tabId == null || tabId < 0 || !verdict) {
         return;
     }
 
@@ -53,7 +53,7 @@ function sendVerdict(tabId, submissionId, verdict) {
 }
 
 function pollSubmissionVerdict(tabId, submissionId) {
-    if (!tabId || tabId < 0 || pendingPolls.has(submissionId)) {
+    if (tabId == null || tabId < 0 || pendingPolls.has(submissionId)) {
         return;
     }
 

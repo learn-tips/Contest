@@ -65,6 +65,7 @@ export default function Room({
     let inputRef = useRef<HTMLInputElement>(null);
     let messagesRef = useRef<HTMLUListElement>(null);
     let [messages, setMessages] = useState<MessageInterface[]>([]);
+    const [submissionError, setSubmissionError] = useState("");
     let [hasClickedCopyIcon, setHasClickedCopyIcon] = useState(false);
     let [displayName, setDisplayName] = useState(
         initialNickname || accountUsername
@@ -160,73 +161,7 @@ export default function Room({
     }
 
     function readStandaloneProblem() {
-        let standaloneProblemString = localStorage.getItem(
-            "tipsBoardStandaloneProblem"
-        );
-        if (!standaloneProblemString) {
-            return;
-        }
-
-        try {
-            let parsedStandaloneProblem: StandaloneProblem = JSON.parse(
-                standaloneProblemString
-            );
-            if (
-                questions.some(
-                    (question) =>
-                        question.titleSlug === parsedStandaloneProblem.titleSlug
-                )
-            ) {
-                syncAcceptedSubmission(parsedStandaloneProblem);
-            }
-        } catch {
-            localStorage.removeItem("tipsBoardStandaloneProblem");
-        }
-    }
-
-    async function syncAcceptedSubmission(problem: StandaloneProblem) {
-        if (!socketRef.current) {
-            return;
-        }
-        let socket = socketRef.current;
-        if (!socket.connected) {
-            socket.once("connect", () => {
-                syncAcceptedSubmission(problem);
-            });
-            return;
-        }
-
-        let submissionUrl = `https://leetcode.com/problems/${problem.titleSlug}/submissions/standalone/`;
-
-        let newAcceptedMessage: MessageInterface = {
-            timestamp: Date.now(),
-            username: displayNameRef.current,
-            body: `solved ${problem.title}!`,
-            chatEvent: ChatEvent.Accepted,
-            color: userColor,
-        };
-        socket.emit("chat-message", newAcceptedMessage);
-
-        let submissionRequestBody: SubmissionRequestBody = {
-            submissionStatus: SubmissionStatus.Accepted,
-            questionTitleSlug: problem.titleSlug,
-            url: submissionUrl,
-        };
-        let response = await fetch(`${SERVER_URL}/submissions/`, {
-            credentials: "include",
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(submissionRequestBody),
-        });
-        if (!response.ok) {
-            console.error("Failed to POST submission to server");
-            return;
-        }
-
         localStorage.removeItem("tipsBoardStandaloneProblem");
-        queryClient.invalidateQueries(["players"]);
     }
 
     useEffect(() => {
@@ -314,17 +249,9 @@ export default function Room({
                 case "verdict":
                     return;
                 case "accepted":
-                    let newAcceptedMessage: MessageInterface = {
-                        timestamp: Date.now(),
-                        username: displayNameRef.current,
-                        body: `solved ${kebabToTitle(
-                            event.data.currentProblem
-                        )}!`,
-                        chatEvent: ChatEvent.Accepted,
-                        color: userColor,
-                    };
-                    if (event.data?.currentProblem) {
-                        socket.emit("chat-message", newAcceptedMessage);
+                    if (typeof event.data.submissionUrl !== "string" ||
+                        /\/submissions\/standalone(?:\/|[?#]|$)/i.test(event.data.submissionUrl)) {
+                        return;
                     }
                     submissionStatus = SubmissionStatus.Accepted;
                     break;
@@ -342,6 +269,7 @@ export default function Room({
                 );
 
                 if (submittedAtInSeconds > createdAtInSeconds + duration * 60) {
+                    setSubmissionError("Submission was not saved: the room time limit has ended.");
                     return;
                 }
             }
@@ -361,7 +289,12 @@ export default function Room({
                 questionTitleSlug: event.data.currentProblem,
                 url: event.data.submissionUrl,
             };
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15_000);
+            setSubmissionError("");
+            try {
             let response = await fetch(`${SERVER_URL}/submissions/`, {
+                signal: controller.signal,
                 credentials: "include",
                 method: "POST",
                 headers: {
@@ -370,11 +303,41 @@ export default function Room({
                 body: JSON.stringify(submissionRequestBody),
             });
             if (!response.ok) {
-                console.error("Failed to POST submission to server");
+                const failure = await response.json().catch(() => null);
+                setSubmissionError(`Submission was not saved (${response.status}): ${failure?.message || "Server rejected the submission"}`);
+                processedSubmissionEventIds.current.delete(event.data.submissionEventId);
                 return;
             }
-
+            const confirmation = await response.json();
+            if (confirmation?.confirmed !== true ||
+                confirmation.questionTitleSlug !== submissionRequestBody.questionTitleSlug ||
+                confirmation.url !== submissionRequestBody.url ||
+                confirmation.submissionStatus !== SubmissionStatus.Accepted) {
+                throw new Error("Server did not confirm the matching accepted submission");
+            }
+            if (controller.signal.aborted) {
+                return;
+            }
+            const newAcceptedMessage: MessageInterface = {
+                timestamp: Date.now(),
+                username: displayNameRef.current,
+                body: `solved ${kebabToTitle(event.data.currentProblem)}!`,
+                chatEvent: ChatEvent.Accepted,
+                color: userColor,
+            };
+            socket.emit("chat-message", newAcceptedMessage);
             queryClient.invalidateQueries(["players"]);
+            } catch (error) {
+                processedSubmissionEventIds.current.delete(event.data.submissionEventId);
+                setSubmissionError(controller.signal.aborted
+                    ? "No server confirmation within 15 seconds. Reopen the scoreboard to check whether it was saved."
+                    : "Could not confirm the submission. Check your connection and try again.");
+                console.error(controller.signal.aborted
+                    ? "Submission confirmation timed out after 15 seconds"
+                    : "Submission confirmation failed", error);
+            } finally {
+                clearTimeout(timeout);
+            }
         }
 
         window.addEventListener("message", handleClickSubmitCodeButton);
@@ -476,6 +439,11 @@ export default function Room({
                 id="tipsboard-chat"
                 className="mx-2 grow overflow-auto border border-transparent px-3 py-[10px]"
             >
+                {submissionError && (
+                    <p role="alert" className="mb-2 text-xs text-red-500">
+                        {submissionError}
+                    </p>
+                )}
                 <ul ref={messagesRef} className="flex flex-col gap-y-1.5">
                     {messages.map((message, index) => (
                         <Message key={index} message={message} />

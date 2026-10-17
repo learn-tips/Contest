@@ -344,7 +344,7 @@ async function main() {
 
     window.addEventListener("message", (event) => {
         if (
-            event.origin !== APP_URL ||
+            event.origin !== new URL(APP_URL).origin ||
             event.data?.extension !== "tipsboard" ||
             event.data?.event !== "submission-received" ||
             !event.data?.submissionEventId
@@ -382,6 +382,7 @@ async function main() {
             ...activeSubmissionAttempt!,
             submissionId,
         };
+        const attemptId = activeSubmissionAttempt.attemptId;
 
         const startTime = Date.now();
         const timeout = 20_000;
@@ -392,6 +393,7 @@ async function main() {
                     currentQuestionTitleSlug,
                     submissionId
                 );
+            if (activeSubmissionAttempt?.attemptId !== attemptId) return;
             if (verdict) {
                 clearInterval(submissionButtonTimer);
                 postFinalSubmissionVerdict(
@@ -554,7 +556,9 @@ async function main() {
 
         const startedAt = Date.now();
         const timeout = 45_000;
-        activeSubmitVerdictTimer = setInterval(() => {
+        let checking = false;
+        activeSubmitVerdictTimer = setInterval(async () => {
+            if (checking) return;
             if (
                 Date.now() - startedAt > timeout ||
                 !isActiveSubmissionFor(titleSlug)
@@ -567,33 +571,43 @@ async function main() {
                 return;
             }
 
+            const attempt = activeSubmissionAttempt;
+            if (!attempt) return;
+            checking = true;
+            try {
+                const response = await fetch(
+                    `https://leetcode.com/api/submissions/${encodeURIComponent(titleSlug)}/?offset=0&limit=20`,
+                    { credentials: "include", signal: AbortSignal.timeout(4000) }
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    const recent = (data.submissions_dump || [])
+                        .filter((item: any) => {
+                            const slug = item.title_slug ?? item.titleSlug;
+                            return slug === titleSlug && /^\d+$/.test(String(item.id)) &&
+                                Number(item.timestamp) * 1000 >= attempt.submittedAt - 1000 &&
+                                Number(item.timestamp) * 1000 <= Date.now() + 1000 &&
+                                (!attempt.submissionId || String(item.id) === attempt.submissionId);
+                        })
+                        .sort((a: any, b: any) => Number(b.timestamp) - Number(a.timestamp))[0];
+                    const verdict = normalizeVerdictText(recent?.status_display ?? recent?.statusDisplay);
+                    if (activeSubmissionAttempt?.attemptId !== attempt.attemptId) return;
+                    if (recent && verdict) {
+                        postFinalSubmissionVerdict(titleSlug,
+                            constructSubmissionUrl(titleSlug, String(recent.id)), verdict);
+                        return;
+                    }
+                }
+            } catch {
+                // Network detection remains available when the history endpoint fails.
+            } finally {
+                checking = false;
+            }
+            if (activeSubmissionAttempt?.attemptId !== attempt.attemptId) return;
+
             const submission = getCurrentSubmission();
             if (!submission || submission.titleSlug !== titleSlug) {
-                const activeAttempt = activeSubmissionAttempt;
-                if (!activeAttempt || activeAttempt.submissionId) {
-                    return;
-                }
-
-                const currentPageVerdict = findChangedActiveResultPaneVerdict(
-                    activeAttempt.initialResultText
-                );
-                if (!currentPageVerdict) {
-                    return;
-                }
-
-                postFinalSubmissionVerdict(
-                    titleSlug,
-                    constructPendingSubmissionUrl(titleSlug),
-                    currentPageVerdict
-                );
                 return;
-            }
-
-            if (!activeSubmissionAttempt?.submissionId) {
-                activeSubmissionAttempt = {
-                    ...activeSubmissionAttempt!,
-                    submissionId: submission.submissionId,
-                };
             }
 
             if (
@@ -623,6 +637,9 @@ async function main() {
     }
 
     function isSubmitControl(element: Element) {
+        if (element.closest('[data-e2e-locator="console-submit-button"]')) {
+            return true;
+        }
         const control = element.closest("button, [role='button']");
         const text = control?.textContent?.replace(/\s+/g, " ").trim();
         return text === "Submit" || text?.startsWith("Submit ");
